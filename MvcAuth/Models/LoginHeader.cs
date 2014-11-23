@@ -7,6 +7,7 @@ namespace MvcAuth.Models
 {
     public class LoginHeader
     {
-        public string alg, kid;
+        public string alg { get; set; }
+        public string kid { get; set; }
     }
 }

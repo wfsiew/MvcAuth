@@ -7,7 +7,14 @@ namespace MvcAuth.Models
 {
     public class LoginClaims
     {
-        public string aud, iss, email_verified, at_hash, azp, email, sub;
-        public int exp, iat;
+        public string aud { get; set; }
+        public string email_verified { get; set; }
+        public string at_hash { get; set; }
+        public string azp { get; set; }
+        public string email { get; set; }
+        public string sub { get; set; }
+        public string iss { get; set; }
+        public int exp { get; set; }
+        public string iat { get; set; }
     }
 }

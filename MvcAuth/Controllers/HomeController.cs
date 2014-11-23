@@ -40,6 +40,7 @@ namespace MvcAuth.Controllers
             string clientsecret = "MTnxddiDsRnuLJY6Rp9uCoo7";
             string redirecturi = "http://localhost:5850/Home/Callback";
             string granttype = "authorization_code";
+            LoginProfile o = new LoginProfile();
 
             //the state token in the return URL needs to be verified first.
             if (code != null && Session["loggedin"] != "1")
@@ -50,7 +51,8 @@ namespace MvcAuth.Controllers
                 {
                     string url = string.Format("code={0}&client_id={1}&client_secret={2}&redirect_uri={3}&grant_type={4}",
                         code, clientid, clientsecret, redirecturi, granttype);
-                    ViewBag.data = POSTResult(url);
+                    o = PostResult(url);
+                    ViewBag.data = "success";
                 }
 
                 else
@@ -69,12 +71,12 @@ namespace MvcAuth.Controllers
                 ViewBag.data = "Not logged in";
             }
 
-            return View();
+            return View(o);
         }
 
-        public string POSTResult(string e)
+        private LoginProfile PostResult(string e)
         {
-            string responseData = "";
+            LoginProfile glp = new LoginProfile();
 
             try
             {
@@ -86,6 +88,7 @@ namespace MvcAuth.Controllers
 
                 // create the POST request
                 HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
+                webRequest.Proxy = null;
                 webRequest.Method = "POST";
                 webRequest.ContentType = "application/x-www-form-urlencoded";
                 webRequest.ContentLength = postData.Length;
@@ -110,29 +113,32 @@ namespace MvcAuth.Controllers
                 LoginInfo gli = JsonConvert.DeserializeObject<LoginInfo>(googleAuth);
                 string[] tokenArray = gli.id_token.Split(new Char[] { '.' });
 
-                LoginClaims glc = JsonConvert.DeserializeObject<LoginClaims>(base64Decode(tokenArray[1]));
-                LoginHeader glh = JsonConvert.DeserializeObject<LoginHeader>(base64Decode(tokenArray[0]));
+                LoginClaims glc = JsonConvert.DeserializeObject<LoginClaims>(Base64Decode(tokenArray[1]));
+                LoginHeader glh = JsonConvert.DeserializeObject<LoginHeader>(Base64Decode(tokenArray[0]));
 
-                if (verifySignature(glh.kid, tokenArray))
-                {
-                    //process payload
-                    LoginClaims glck = JsonConvert.DeserializeObject<LoginClaims>(base64Decode(tokenArray[1]));
+                //process payload
+                LoginClaims glck = JsonConvert.DeserializeObject<LoginClaims>(Base64Decode(tokenArray[1]));
 
-                    //we can tell the session that we're logged in
-                    Session["loggedin"] = "1";
-                    responseData = "You have successfully logged in using " + glck.email + ".";
-                }
+                //we can tell the session that we're logged in
+                Session["loggedin"] = "1";
+
+                glp = GetProfile(gli);
+
+                //if (VerifySignature(glh.kid, tokenArray))
+                //{
+                    
+                //}
             }
 
             catch (Exception ex)
             {
-                responseData = ex.ToString();
+                throw ex;
             }
 
-            return responseData;
+            return glp;
         }
 
-        public string base64Decode(string data)
+        private string Base64Decode(string data)
         {
             //add padding with '=' to string to accommodate C# Base64 requirements
             int strlen = data.Length + (4 - (data.Length % 4));
@@ -169,7 +175,27 @@ namespace MvcAuth.Controllers
             }
         }
 
-        public void cacheCertificate(string kid)
+        private LoginProfile GetProfile(LoginInfo gli)
+        {
+            string url = "https://www.googleapis.com/oauth2/v3/userinfo?access_token=" + gli.access_token;
+            WebRequest request = WebRequest.Create(url);
+            request.Proxy = null;
+            WebResponse response = request.GetResponse();
+            Stream data = response.GetResponseStream();
+
+            string v;
+
+            using (StreamReader sr = new StreamReader(data))
+            {
+                v = sr.ReadToEnd();
+            }
+
+            LoginProfile glp = JsonConvert.DeserializeObject<LoginProfile>(v);
+
+            return glp;
+        }
+
+        private void CacheCertificate(string kid)
         {
             //if the certificate ID doesn't already exist as a local certificate file, download it from Google
             if (!System.IO.File.Exists(@"C:\certs" + kid + ".cer"))
@@ -177,6 +203,7 @@ namespace MvcAuth.Controllers
                 //pull JSON certificate data from Google
                 string url = "https://www.googleapis.com/oauth2/v1/certs";
                 WebRequest request = WebRequest.Create(url);
+                request.Proxy = null;
                 WebResponse response = request.GetResponse();
                 Stream certdata = response.GetResponseStream();
 
@@ -200,7 +227,7 @@ namespace MvcAuth.Controllers
             }
         }
 
-        public bool verifySignature(string kid, string[] jwt)
+        private bool VerifySignature(string kid, string[] jwt)
         {
             //this will return TRUE if the signature is valid or FALSE if it is invalid
             //if the signature is invalid, we must not accept the user's login information!
@@ -209,13 +236,13 @@ namespace MvcAuth.Controllers
             bool verified = false;
 
             //before we do anything else, we need to locally cache Google's public certificate, if it isn't already
-            cacheCertificate(kid);
+            CacheCertificate(kid);
 
             //pull out the different elements from the original JWT provided by Google
             string toVerify = jwt[0] + "." + jwt[1];
             string signature = jwt[2];
 
-            byte[] sig = base64urldecode(signature);
+            byte[] sig = Base64urldecode(signature);
 
             //the header and payload need to be converted to a byte array
             byte[] data = Encoding.UTF8.GetBytes(toVerify);
@@ -234,6 +261,8 @@ namespace MvcAuth.Controllers
                 {
                     hash = sha256.ComputeHash(data);
                 }
+
+                string h = UTF8Encoding.UTF8.GetString(hash);
 
                 //Create an RSAPKCS1SignatureDeformatter object and pass it the   
                 //RSACryptoServiceProvider to transfer the key information.
@@ -255,7 +284,7 @@ namespace MvcAuth.Controllers
             return verified;
         }
 
-        public byte[] base64urldecode(string arg)
+        private byte[] Base64urldecode(string arg)
         {
             //this swaps out the characters in Base64Url encoding for valid Base64 syntax
             //C# can't decode Base64 without doing this first

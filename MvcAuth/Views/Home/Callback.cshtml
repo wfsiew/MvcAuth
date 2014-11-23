@@ -1,6 +1,27 @@
-﻿@{
+﻿@model MvcAuth.Models.LoginProfile
+
+@{
     ViewBag.Title = "Callback";
 }
 
 <h2>Callback</h2>
-<p>@ViewBag.data</p>
+@if (ViewBag.data == "success")
+{
+    <dl>
+        <dt>name</dt>
+        <dd>@Model.name</dd>
+        <dt>given name</dt>
+        <dd>@Model.given_name</dd>
+        <dt>family name</dt>
+        <dd>@Model.family_name</dd>
+        <dt>profile</dt>
+        <dd>@Model.profile</dd>
+        <dt>email</dt>
+        <dd>@Model.email</dd>
+    </dl>
+}
+
+else
+{
+    <p>@ViewBag.data</p>
+}

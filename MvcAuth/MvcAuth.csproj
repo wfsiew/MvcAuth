@@ -137,6 +137,7 @@
     <Compile Include="Models\LoginClaims.cs" />
     <Compile Include="Models\LoginHeader.cs" />
     <Compile Include="Models\LoginInfo.cs" />
+    <Compile Include="Models\LoginProfile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
